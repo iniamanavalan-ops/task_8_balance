@@ -1,0 +1,610 @@
+#8
+
+#controller 
+package com.example.fileupload.controller;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.File;
+import java.io.IOException;
+
+@Controller
+public class FileUploadController {
+
+    @Value("${upload.path}")
+    private String uploadPath;
+
+    @GetMapping("/")
+    public String showUploadPage() {
+        return "upload";
+    }
+
+    @PostMapping("/upload")
+    public String uploadFile(@RequestParam("file") MultipartFile file,
+                             Model model) {
+
+        if (file.isEmpty()) {
+            model.addAttribute("message", "Please select a file.");
+            return "upload";
+        }
+
+        String contentType = file.getContentType();
+
+        if (!(contentType.equals("application/pdf")
+                || contentType.startsWith("image/"))) {
+
+            model.addAttribute("message",
+                    "Only PDF and Image files are allowed.");
+            return "upload";
+        }
+
+        try {
+
+            File directory = new File(uploadPath);
+
+            if (!directory.exists()) {
+                directory.mkdirs();
+            }
+
+            String fileName = file.getOriginalFilename();
+
+            File destination =
+                    new File(uploadPath + File.separator + fileName);
+
+            file.transferTo(destination);
+
+            model.addAttribute("message",
+                    "File uploaded successfully: " + fileName);
+
+        } catch (IOException e) {
+
+            model.addAttribute("message",
+                    "File upload failed.");
+
+            e.printStackTrace();
+        }
+
+        return "upload";
+    }
+}
+
+
+#9
+
+#email service
+
+package com.example.email.service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.stereotype.Service;
+@Service
+public class EmailService {
+    @Autowired
+    private JavaMailSender mailSender;
+    public void sendWelcomeEmail(String toEmail) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(toEmail);
+        message.setSubject("Welcome to Our Application");
+        message.setText(
+                "Hello,\n\n" +
+                "Welcome to our application.\n" +
+                "We are glad to have you with us.\n\n" +
+                "Thank you."
+        );
+        mailSender.send(message);
+    }
+    public void sendPasswordResetEmail(
+            String toEmail,
+            String resetLink) {
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(toEmail);
+        message.setSubject("Password Reset Request");
+        message.setText(
+                "Hello,\n\n" +
+                "Click the link below to reset your password:\n\n" +
+                resetLink +
+                "\n\nIf you did not request this, ignore this email."
+        );
+        mailSender.send(message);
+    }
+}
+
+
+#email controller
+
+package com.example.email.controller;
+import com.example.email.service.EmailService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/email")
+public class EmailController {
+
+    @Autowired
+    private EmailService emailService;
+    @PostMapping("/welcome")
+    public String sendWelcomeEmail(
+            @RequestParam String email) {
+
+        emailService.sendWelcomeEmail(email);
+
+        return "Welcome email sent successfully.";
+    }
+
+    @PostMapping("/reset-password")
+    public String sendPasswordResetEmail(
+            @RequestParam String email) {
+
+        String resetLink =
+                "https://example.com/reset-password?token=123456";
+
+        emailService.sendPasswordResetEmail(
+                email,
+                resetLink
+        );
+        return "Password reset email sent successfully.";
+    }
+}
+
+
+
+#10
+
+import java.util.*;
+import java.util.stream.Collectors;
+class Employee {
+
+    int id; String name, dept;
+    Employee(int id, String name, String dept) { this.id = id; this.name = name; this.dept = dept; }
+    public String toString() { return String.format("%-3d | %-12s | %-10s", id, name, dept); }
+}
+
+public class Main {
+    static List<Employee> employees = Arrays.asList(
+        new Employee(1, "Alice", "IT"), new Employee(2, "Bob", "HR"), new Employee(3, "Charlie", "IT"),
+        new Employee(4, "Diana", "Sales"), new Employee(5, "Eve", "HR"), new Employee(6, "Frank", "IT"),
+        new Employee(7, "Grace", "Sales"), new Employee(8, "Henry", "IT"), new Employee(9, "Ivy", "HR"),
+        new Employee(10, "Jack", "Sales"), new Employee(11, "Kevin", "IT"), new Employee(12, "Lisa", "HR")
+    );
+        
+    static List<Employee> sortedList = new ArrayList<>(employees);
+    static int page = 1, pageSize = 4;
+    static String sortBy = "id";
+    static boolean asc = true;
+
+    static void sort() {
+        Comparator<Employee> comp = sortBy.equals("name") ? Comparator.comparing(e -> e.name) : Comparator.comparing(e -> e.dept);
+        if (!asc) comp = comp.reversed();
+    
+        sortedList = employees.stream().sorted(comp).collect(Collectors.toList());
+    }
+    static void display() {
+        sort();
+        int start = (page - 1) * pageSize, end = Math.min(start + pageSize, sortedList.size());
+    
+        System.out.println("\n=== Employees (Page " + page + "/" + (int)Math.ceil(sortedList.size()/(double)pageSize) + 
+                         ", Sort: " + sortBy + " " + (asc ? "↑" : "↓") + ") ===");
+        System.out.println("ID  | Name         | Dept");
+    
+        for (int i = start; i < end; i++) System.out.println(sortedList.get(i));
+        System.out.println("[P]rev [N]ext [S]ort Name [D]ept [R]eset [Q]uit");
+    }
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        while (true) {
+            display();
+
+            char cmd = sc.next().toLowerCase().charAt(0);
+    
+            if (cmd == 'n' && page * pageSize < sortedList.size()) page++;
+            else if (cmd == 'p' && page > 1) page--;
+            else if (cmd == 's') { sortBy = "name"; asc = true; page = 1; }
+            else if (cmd == 'd') { sortBy = "dept"; asc = true; page = 1; }
+            else if (cmd == 'r') { sortBy = "id"; asc = true; page = 1; sort(); }
+            else if (cmd == 'q') break;
+        }
+        sc.close();
+    
+    }
+}
+
+
+#11
+
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+
+@Entity
+public class Employee {
+
+    @Id
+    private Long employeeId;
+    private String name;
+    private String department;
+
+    public Employee() {}
+    public Employee(Long employeeId, String name, String department) {
+        this.employeeId = employeeId;
+        this.name = name;
+        this.department = department;
+    }
+    public Long getEmployeeId() {
+        return employeeId;
+    }
+    public void setEmployeeId(Long employeeId) {
+        this.employeeId = employeeId;
+    }
+    public String getName() {
+        return name;
+    }
+    public void setName(String name) {
+        this.name = name;
+    }
+    public String getDepartment() {
+        return department;
+    }
+    public void setDepartment(String department) {
+        this.department = department;
+    }
+}
+
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+import java.util.Optional;
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+    Optional<Employee> findByEmployeeId(Long employeeId);
+    List<Employee> findByNameContainingIgnoreCase(String name);
+    List<Employee> findByDepartmentIgnoreCase(String department);
+}
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+
+@RestController
+@RequestMapping("/employees")
+public class EmployeeController {
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    @GetMapping("/id/{id}")
+    public Employee searchById(@PathVariable Long id) {
+        return employeeRepository.findByEmployeeId(id)
+                .orElse(null);
+    }
+    @GetMapping("/name/{name}")
+    public List<Employee> searchByName(@PathVariable String name) {
+        return employeeRepository.findByNameContainingIgnoreCase(name);
+    }
+    @GetMapping("/department/{department}")
+    public List<Employee> searchByDepartment(@PathVariable String department) {
+        return employeeRepository.findByDepartmentIgnoreCase(department);
+    }
+}
+
+
+#12
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.bind.annotation.*;
+
+@SpringBootApplication
+@RestController
+
+public class EmployeeLoggingApplication {
+
+    private static final Logger logger =
+            LoggerFactory.getLogger(EmployeeLoggingApplication.class);
+
+    public static void main(String[] args) {
+        SpringApplication.run(EmployeeLoggingApplication.class, args);
+        logger.info("Application Started");
+    }
+
+    @PostMapping("/login")
+    public String login(@RequestParam String username) {
+        logger.info("Login attempt by user: {}", username);
+
+        if ("admin".equals(username)) {
+            logger.info("Login successful for user: {}", username);
+            return "Login Successful";
+        }
+
+        logger.warn("Login failed for user: {}", username);
+        return "Invalid Credentials";
+    }
+
+    @PostMapping("/employee")
+    public String createEmployee(@RequestParam Long id,
+                                 @RequestParam String name) {
+
+        logger.info("Creating employee - ID: {}, Name: {}", id, name);
+
+        return "Employee Created Successfully";
+    }
+
+    
+    @PutMapping("/employee/{id}")
+    public String updateEmployee(@PathVariable Long id,
+                                 @RequestParam String name) {
+
+        logger.info("Updating employee - ID: {}", id);
+        logger.info("New Name: {}", name);
+
+        return "Employee Updated Successfully";
+    }
+
+
+    @GetMapping("/exception")
+    public String generateException() {
+        try {
+            int result = 10 / 0;
+            return "Result: " + result;
+        } catch (Exception e) {
+            logger.error("Exception occurred: {}", e.getMessage(), e);
+            return "Exception Handled";
+        }
+    }
+}
+
+
+
+#13
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.*;
+
+@SpringBootApplication
+@RestController
+public class EmployeeDTOApplication {
+
+    private final EmployeeService employeeService;
+    public EmployeeDTOApplication(EmployeeService employeeService) {
+        this.employeeService = employeeService;
+    }
+    public static void main(String[] args) {
+        SpringApplication.run(EmployeeDTOApplication.class, args);
+    }
+    @PostMapping("/employees")
+    public EmployeeDTO createEmployee(@RequestBody EmployeeDTO employeeDTO) {
+        return employeeService.createEmployee(employeeDTO);
+    }
+}
+
+class EmployeeDTO {
+    private Long id;
+    private String name;
+    private String department;
+
+    public EmployeeDTO() {}
+    public EmployeeDTO(Long id, String name, String department) {
+        this.id = id;
+        this.name = name;
+        this.department = department;
+    }
+    public Long getId() {
+        return id;
+    }
+    public void setId(Long id) {
+        this.id = id;
+    }
+    public String getName() {
+        return name;
+    }
+    public void setName(String name) {
+        this.name = name;
+    }
+    public String getDepartment() {
+        return department;
+    }
+    public void setDepartment(String department) {
+        this.department = department;
+    }
+}
+
+class Employee {
+    private Long id;
+    private String name;
+    private String department;
+
+    public Employee() {}
+    public Employee(Long id, String name, String department) {
+        this.id = id;
+        this.name = name;
+        this.department = department;
+    }
+
+    public Long getId() {
+        return id;
+    }
+    public void setId(Long id) {
+        this.id = id;
+    }
+    public String getName() {
+        return name;
+    }
+    public void setName(String name) {
+        this.name = name;
+    }
+    public String getDepartment() {
+        return department;
+    }
+    public void setDepartment(String department) {
+        this.department = department;
+    }
+}
+
+@Service
+class EmployeeService {
+
+    public EmployeeDTO createEmployee(EmployeeDTO dto) {
+
+        Employee employee = new Employee();
+        employee.setId(dto.getId());
+        employee.setName(dto.getName());
+        employee.setDepartment(dto.getDepartment());
+
+        EmployeeDTO responseDTO = new EmployeeDTO();
+        responseDTO.setId(employee.getId());
+        responseDTO.setName(employee.getName());
+        responseDTO.setDepartment(employee.getDepartment());
+
+        return responseDTO;
+    }
+}
+
+
+#14 
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+
+@SpringBootApplication
+@RestController
+@RequestMapping("/employees")
+public class EmployeeRestApiApplication {
+
+    private final Map<Long, Employee> employeeStore = new HashMap<>();
+
+    public static void main(String[] args) {
+        SpringApplication.run(EmployeeRestApiApplication.class, args);
+    }
+    @PostMapping
+    public Employee createEmployee(@RequestBody Employee employee) {
+        employeeStore.put(employee.getId(), employee);
+        return employee;
+    }
+    @GetMapping
+    public Collection<Employee> getAllEmployees() {
+        return employeeStore.values();
+    }
+    @GetMapping("/{id}")
+    public Employee getEmployee(@PathVariable Long id) {
+        return employeeStore.get(id);
+    }
+    @PutMapping("/{id}")
+    public Employee updateEmployee(@PathVariable Long id,
+                                   @RequestBody Employee employee) {
+        employee.setId(id);
+        employeeStore.put(id, employee);
+        return employee;
+    }
+    @DeleteMapping("/{id}")
+    public String deleteEmployee(@PathVariable Long id) {
+        employeeStore.remove(id);
+        return "Employee Deleted Successfully";
+    }
+}
+class Employee {
+    private Long id;
+    private String name;
+    private String department;
+
+    public Employee() {}
+    public Employee(Long id, String name, String department) {
+        this.id = id;
+        this.name = name;
+        this.department = department;
+    }
+    public Long getId() {
+        return id;
+    }
+    public void setId(Long id) {
+        this.id = id;
+    }
+    public String getName() {
+        return name;
+    }
+    public void setName(String name) {
+        this.name = name;
+    }
+    public String getDepartment() {
+        return department;
+    }
+    public void setDepartment(String department) {
+        this.department = department;
+    }
+}
+
+
+#15
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@SpringBootApplication
+@RestController
+public class ActuatorDemoApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(ActuatorDemoApplication.class, args);
+    }
+
+    @GetMapping("/")
+    public String home() {
+        return "Spring Boot Actuator Demo";
+    }
+
+    @GetMapping("/employee")
+    public String employee() {
+        return "Employee Service Running";
+    }
+}
+
+
+#16
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@SpringBootApplication
+@RestController
+public class ProfileDemoApplication {
+
+    @Value("${environment.name}")
+    private String environment;
+
+    @Value("${server.port}")
+    private String port;
+
+    public static void main(String[] args) {
+        SpringApplication.run(ProfileDemoApplication.class, args);
+    }
+
+    @GetMapping("/")
+    public String getProfileInfo() {
+        return "Running in " + environment +
+               " Profile on Port " + port;
+    }
+}
+
+
+
